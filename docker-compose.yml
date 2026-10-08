@@ -1,0 +1,40 @@
+# Local stack: PostgreSQL + backend. The OCR service runs separately (default http://host.docker.internal:8090).
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: meenakshi
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d meenakshi"]
+      interval: 5s
+      retries: 10
+
+  backend:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: jdbc:postgresql://postgres:5432/meenakshi
+      DATABASE_USERNAME: postgres
+      DATABASE_PASSWORD: postgres
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET (32+ bytes)}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?set JWT_REFRESH_SECRET (32+ bytes)}
+      OCR_SERVICE_URL: ${OCR_SERVICE_URL:-http://host.docker.internal:8090}
+      LOG_JSON: "true"
+    ports:
+      - "8080:8080"
+    volumes:
+      - files:/data/files
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  pgdata:
+  files:
